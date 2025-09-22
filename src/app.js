@@ -5,6 +5,8 @@ require('dotenv').config();
 // Import routes
 const authRoutes = require('./routes/auth');
 const orderRoutes = require('./routes/orders');
+const userManagementRoutes = require('./routes/userManagement');
+const driverRoutes = require('./routes/drivers');
 
 const app = express();
 
@@ -20,6 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/admin/users', userManagementRoutes);
+app.use('/api/drivers', driverRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

@@ -68,6 +68,101 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: [200, 'Address cannot be more than 200 characters']
   },
+  // User status
+  status: {
+    type: String,
+    required: true,
+    enum: {
+      values: ['active', 'blocked'],
+      message: 'Status must be active or blocked'
+    },
+    default: 'active'
+  },
+  
+  // Driver-specific fields
+  driverStatus: {
+    type: String,
+    required: function() {
+      return this.userType === 'driver';
+    },
+    enum: {
+      values: ['free', 'busy', 'offline'],
+      message: 'Driver status must be free, busy, or offline'
+    },
+    default: 'offline'
+  },
+  currentOrder: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    default: null
+  },
+  orderQueue: [{
+    order: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Order',
+      required: true
+    },
+    assignedAt: {
+      type: Date,
+      default: Date.now
+    },
+    priority: {
+      type: Number,
+      default: 0
+    }
+  }],
+  maxQueueSize: {
+    type: Number,
+    default: 5,
+    min: [1, 'Max queue size must be at least 1'],
+    max: [10, 'Max queue size cannot exceed 10']
+  },
+  location: {
+    latitude: {
+      type: Number,
+      min: -90,
+      max: 90
+    },
+    longitude: {
+      type: Number,
+      min: -180,
+      max: 180
+    },
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  vehicleInfo: {
+    vehicleType: {
+      type: String,
+      enum: ['truck', 'van', 'motorcycle'],
+      default: 'truck'
+    },
+    vehicleNumber: {
+      type: String,
+      trim: true,
+      maxlength: [20, 'Vehicle number cannot exceed 20 characters']
+    },
+    capacity: {
+      type: Number,
+      min: [1, 'Capacity must be at least 1']
+    }
+  },
+  blockedAt: {
+    type: Date,
+    default: null
+  },
+  blockedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  blockedReason: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Block reason cannot exceed 500 characters']
+  },
   createdAt: {
     type: Date,
     default: Date.now

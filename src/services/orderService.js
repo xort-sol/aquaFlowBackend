@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
+const socketService = require('./socketService');
 
 // Product configuration
 const PRODUCT_CONFIG = {
@@ -103,24 +104,29 @@ const orderService = {
       // Populate customer information
       await order.populate('customer', 'name email fullName houseNumber portion address');
 
+      const orderResponse = {
+        id: order._id,
+        orderNumber: order.orderNumber,
+        customer: order.customer,
+        items: order.items,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        totalAmount: order.totalAmount,
+        deliveryAddress: order.deliveryAddress,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        orderDate: order.orderDate,
+        notes: order.notes
+      };
+
+      // Emit real-time event to admin room
+      socketService.emitNewOrder(orderResponse);
+
       return {
         success: true,
         message: 'Order created successfully',
-        order: {
-          id: order._id,
-          orderNumber: order.orderNumber,
-          customer: order.customer,
-          items: order.items,
-          subtotal: order.subtotal,
-          tax: order.tax,
-          totalAmount: order.totalAmount,
-          deliveryAddress: order.deliveryAddress,
-          status: order.status,
-          paymentStatus: order.paymentStatus,
-          paymentMethod: order.paymentMethod,
-          orderDate: order.orderDate,
-          notes: order.notes
-        }
+        order: orderResponse
       };
 
     } catch (error) {
@@ -280,6 +286,15 @@ const orderService = {
 
       await order.save();
 
+      // Emit real-time event
+      socketService.emitOrderStatusUpdate(order._id, status, userId);
+
+      // Emit update to customer
+      socketService.emitOrderUpdateToCustomer(order.customer, order._id, 'status-update', {
+        status: order.status,
+        updatedAt: order.updatedAt
+      });
+
       return {
         success: true,
         message: 'Order status updated successfully',
@@ -312,6 +327,18 @@ const orderService = {
 
       order.driver = driverId;
       await order.save();
+
+      // Emit real-time event
+      socketService.emitOrderAssignment(order._id, driverId, driver.name);
+
+      // Emit update to customer
+      socketService.emitOrderUpdateToCustomer(order.customer, order._id, 'driver-assigned', {
+        driver: {
+          id: driver._id,
+          name: driver.name,
+          email: driver.email
+        }
+      });
 
       return {
         success: true,
