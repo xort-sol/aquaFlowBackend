@@ -12,15 +12,15 @@ class IoTSubscriber {
 
   async connect() {
     try {
-      // IoT Core connection configuration
-      const config_builder = iot.AwsIotMqttConnectionConfigBuilder.new_mtls_builder_from_path(
-        path.join(__dirname, '../../crt/e7d328f3fae76a829f35f14ff1c14dcb2432a984bd72a0a51c6db03d35136bbf-certificate.pem.crt'),
-        path.join(__dirname, '../../crt/e7d328f3fae76a829f35f14ff1c14dcb2432a984bd72a0a51c6db03d35136bbf-private.pem.key')
+
+      // IoT Core connection configuration using in-memory certs/keys from env
+      const config_builder = iot.AwsIotMqttConnectionConfigBuilder.new_mtls_builder(
+        process.env.AWS_IOT_CERTIFICATE.replace(/\\n/g, '\n'),
+        process.env.AWS_IOT_PRIVATE_KEY.replace(/\\n/g, '\n')
       );
 
-      config_builder.with_certificate_authority_from_path(
-        undefined,
-        path.join(__dirname, '../../crt/AmazonRootCA1.pem')
+      config_builder.with_certificate_authority(
+        process.env.AWS_ROOT_CA1.replace(/\\n/g, '\n')
       );
 
       config_builder.with_clean_session(false);
