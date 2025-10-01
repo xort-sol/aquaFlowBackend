@@ -1,4 +1,5 @@
 const IoTData = require('../models/IoTData');
+const Calibration = require('../models/Calibration');
 
 class IoTDataService {
   constructor() {
@@ -9,29 +10,49 @@ class IoTDataService {
   async processIoTData(data) {
     try {
       console.log('Received IoT data:', data);
-      
+
       // Parse timestamp if it's a string
       let timestamp = data.timestamp;
       if (typeof timestamp === 'string') {
         timestamp = new Date(timestamp.trim());
       }
 
-      // Create new IoT data entry
+      // Fetch latest calibration values
+      const calibration = await Calibration.findOne().sort({ createdAt: -1 });
+      if (!calibration) {
+        throw new Error('Calibration values not set');
+      }
+      const { tank_depth, tank_full_distance } = calibration;
+
+      // Calculate tank level from distance
+      // tankLevel = ((tank_depth - distance) / (tank_depth - tank_full_distance)) * 100
+      let tankLevel = null;
+      if (typeof data.distance === 'number') {
+        tankLevel = ((tank_depth - data.distance) / (tank_depth - tank_full_distance)) * 100;
+        // Clamp between 0 and 100
+        tankLevel = Math.max(0, Math.min(100, tankLevel));
+      }
+
+      console.log(`Calculated tank level: ${tankLevel}%`);
+      
+
+      // Create new IoT data entry (store tankLevel instead of distance)
       const iotData = new IoTData({
         humidity: data.humidity,
         temperature: data.temperature,
         distance: data.distance,
+        tankLevel,
         timestamp: timestamp
       });
 
       // Save to database
       await iotData.save();
-      
+
       // Store as latest data
       this.latestData = {
         humidity: data.humidity,
         temperature: data.temperature,
-        distance: data.distance,
+        tankLevel,
         timestamp: timestamp,
         receivedAt: new Date()
       };

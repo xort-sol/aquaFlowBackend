@@ -11,6 +11,10 @@ const iotDataSchema = new mongoose.Schema({
   },
   distance: {
     type: Number,
+    required: false
+  },
+  tankLevel: {
+    type: Number,
     required: true
   },
   timestamp: {
