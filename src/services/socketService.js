@@ -210,12 +210,42 @@ const socketService = {
   // Emit driver location update
   emitDriverLocationUpdate(driverId, location) {
     if (this.io) {
+      // Emit to admin room
       this.io.to('admin-room').emit('driver-location-update', {
         type: 'driver-location-update',
         data: {
           driverId,
           location,
           timestamp: new Date().toISOString()
+        }
+      });
+
+      // Emit to driver's own room
+      this.io.to(`driver-${driverId}`).emit('driver-location-update', {
+        type: 'driver-location-update',
+        data: {
+          driverId,
+          location,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      // Optionally emit to customer room(s) if driver has a current order
+      const User = require('../models/User');
+      const Order = require('../models/Order');
+      User.findById(driverId).select('currentOrder').then(async (driver) => {
+        if (driver && driver.currentOrder) {
+          const order = await Order.findById(driver.currentOrder).select('customer');
+          if (order && order.customer) {
+            this.io.to(`customer-${order.customer}`).emit('driver-location-update', {
+              type: 'driver-location-update',
+              data: {
+                driverId,
+                location,
+                timestamp: new Date().toISOString()
+              }
+            });
+          }
         }
       });
 
