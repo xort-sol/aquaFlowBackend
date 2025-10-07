@@ -1,6 +1,7 @@
 const app = require('./app');
 const connectDB = require('./config/db');
 const socketService = require('./services/socketService');
+const iotSubscriber = require('./iotnode/fetchiotdata');
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,6 +24,15 @@ const startServer = async () => {
 
     // Initialize Socket.IO
     socketService.initialize(server);
+
+    // Connect to AWS IoT Core
+    try {
+      await iotSubscriber.connect();
+      console.log('AWS IoT Core subscriber initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize AWS IoT Core subscriber:', error);
+      // Continue server startup even if IoT connection fails
+    }
 
     // Handle unhandled promise rejections
     process.on('unhandledRejection', (err) => {
