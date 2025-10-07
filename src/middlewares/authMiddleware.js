@@ -37,10 +37,8 @@ const authMiddleware = async (req, res, next) => {
     // Get user from database
     const user = await User.findById(decoded.id);
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Token is valid but user not found'
-      });
+      console.error('[AUTH] Token valid but no user found:', token);
+      return res.status(401).json({ success: false, message: 'User not found for token' });
     }
 
     // Add user to request object

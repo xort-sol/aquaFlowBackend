@@ -147,6 +147,66 @@ const userSchema = new mongoose.Schema({
     capacity: {
       type: Number,
       min: [1, 'Capacity must be at least 1']
+    },
+    licensePlate: {
+      type: String,
+      trim: true,
+      maxlength: [15, 'License plate cannot exceed 15 characters']
+    },
+    insuranceNumber: {
+      type: String,
+      trim: true,
+      maxlength: [50, 'Insurance number cannot exceed 50 characters']
+    }
+  },
+  // Driver performance metrics
+  rating: {
+    average: {
+      type: Number,
+      default: 5.0,
+      min: [1, 'Rating cannot be less than 1'],
+      max: [5, 'Rating cannot be more than 5']
+    },
+    totalRatings: {
+      type: Number,
+      default: 0
+    }
+  },
+  // Driver earnings
+  earnings: {
+    totalEarned: {
+      type: Number,
+      default: 0,
+      min: [0, 'Total earned cannot be negative']
+    },
+    currentMonthEarnings: {
+      type: Number,
+      default: 0,
+      min: [0, 'Current month earnings cannot be negative']
+    },
+    lastPayoutDate: {
+      type: Date,
+      default: null
+    }
+  },
+  // Driver settings
+  settings: {
+    notificationsEnabled: {
+      type: Boolean,
+      default: true
+    },
+    soundEnabled: {
+      type: Boolean,
+      default: true
+    },
+    language: {
+      type: String,
+      default: 'en',
+      enum: ['en', 'ur', 'ar']
+    },
+    autoAcceptOrders: {
+      type: Boolean,
+      default: false
     }
   },
   blockedAt: {
