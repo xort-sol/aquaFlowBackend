@@ -95,7 +95,9 @@ const orderService = {
           portion: deliveryAddress.portion || customer.portion,
           address: deliveryAddress.address || customer.address,
           phoneNumber: deliveryAddress.phoneNumber,
-          specialInstructions: deliveryAddress.specialInstructions
+          specialInstructions: deliveryAddress.specialInstructions,
+          latitude: deliveryAddress.latitude,
+          longitude: deliveryAddress.longitude
         },
         paymentMethod: paymentMethod || 'cash',
         notes
@@ -189,14 +191,29 @@ const orderService = {
       return {
         success: true,
         orders: orders.map(order => ({
-          id: order._id,
+          _id: order._id,
           orderNumber: order.orderNumber,
+          customer: order.customer,
           items: order.items,
+          subtotal: order.subtotal,
+          tax: order.tax,
           totalAmount: order.totalAmount,
+          deliveryAddress: order.deliveryAddress,
           status: order.status,
+          paymentStatus: order.paymentStatus,
+          paymentMethod: order.paymentMethod,
           orderDate: order.orderDate,
           deliveryDate: order.deliveryDate,
-          driver: order.driver
+          deliveredAt: order.deliveredAt,
+          driver: order.driver ? {
+            id: order.driver._id,
+            name: order.driver.name,
+            email: order.driver.email
+          } : null,
+          notes: order.notes,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          __v: order.__v
         }))
       };
 

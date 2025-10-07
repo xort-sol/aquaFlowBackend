@@ -141,10 +141,15 @@ const driverAppController = {
       const { status, page = 1, limit = 10 } = req.query;
       
       const query = { driver: driverId };
-      if (status) query.status = status;
+      
+      // Support multiple statuses separated by comma
+      if (status) {
+        const statuses = status.split(',').map(s => s.trim());
+        query.status = { $in: statuses };
+      }
       
       const orders = await Order.find(query)
-        .populate('customer', 'name email')
+        .populate('customer', 'name email fullName phoneNumber')
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit)
@@ -152,15 +157,50 @@ const driverAppController = {
       
       const totalOrders = await Order.countDocuments(query);
       
+      // Transform orders to match the expected format
+      const transformedOrders = orders.map(order => ({
+        id: order._id.toString(),
+        orderNumber: order.orderNumber,
+        customerId: order.customer._id.toString(),
+        customerName: order.customer.fullName || order.customer.name,
+        customerAddress: order.deliveryAddress.address,
+        customerPhone: order.deliveryAddress.phoneNumber || order.customer.phoneNumber,
+        status: order.status,
+        priority: 'medium', // You can add logic to determine priority
+        items: order.items.map(item => ({
+          productId: order._id.toString(), // Use order ID or create product IDs
+          productName: item.type === 'large_tanker' ? 'Large Tanker' : 
+                       item.type === 'small_tanker' ? 'Small Tanker' : 'Water Bottles',
+          quantity: item.quantity,
+          price: item.unitPrice
+        })),
+        totalAmount: order.totalAmount,
+        deliveryFee: 200, // Fixed delivery fee or calculate based on distance
+        estimatedDeliveryTime: order.deliveryDate || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now if not set
+        pickupLocation: {
+          latitude: 24.8607,
+          longitude: 67.0011,
+          address: "Main Warehouse, Karachi" // You can make this configurable
+        },
+        deliveryLocation: {
+          latitude: order.deliveryAddress.latitude,
+          longitude: order.deliveryAddress.longitude,
+          address: order.deliveryAddress.address
+        },
+        createdAt: order.createdAt,
+        acceptedAt: order.orderDate,
+        pickedUpAt: order.status === 'out_for_delivery' || order.status === 'delivered' ? order.orderDate : null,
+        deliveredAt: order.deliveredAt,
+        notes: order.notes || order.deliveryAddress.specialInstructions || 'Handle with care'
+      }));
+      
       res.status(200).json({
         success: true,
         data: {
-          orders,
-          pagination: {
-            currentPage: parseInt(page),
-            totalPages: Math.ceil(totalOrders / limit),
-            totalOrders
-          }
+          orders: transformedOrders,
+          total: totalOrders,
+          page: parseInt(page),
+          totalPages: Math.ceil(totalOrders / limit)
         }
       });
     } catch (error) {
@@ -289,16 +329,21 @@ const driverAppController = {
       
       await order.save();
       
+      // Populate driver info for the response
+      const driver = await User.findById(driverId).select('name email');
+      
       // Send real-time updates to customer
       socketService.emitOrderUpdateToCustomer(
         order.customer,
         order._id,
-        'orderStatusUpdate',
+        'status-update',
         {
-          orderId: order._id,
-          orderNumber: order.orderNumber,
           status: order.status,
-          updatedAt: order.updatedAt
+          driver: driver ? {
+            id: driver._id,
+            name: driver.name,
+            email: driver.email
+          } : null
         }
       );
 
@@ -512,6 +557,20 @@ const driverAppController = {
         },
         { new: true }
       ).select('location');
+      
+      // Find all active orders for this driver and emit to customers
+      const activeOrders = await Order.find({
+        driver: driverId,
+        status: { $in: ['preparing', 'out_for_delivery'] }
+      }).select('customer');
+
+      const customerIds = activeOrders.map(order => order.customer.toString());
+      const uniqueCustomerIds = [...new Set(customerIds)];
+
+      // Emit to each customer with active orders
+      uniqueCustomerIds.forEach(customerId => {
+        socketService.emitDriverLocationUpdate(driverId, driver.location);
+      });
       
       // Emit location update to admin dashboard
       socketService.emitToAdmins('driverLocationUpdate', {

@@ -37,6 +37,7 @@ const socketService = {
       socket.on('join-driver-room', () => {
         if (socket.user.userType === 'driver' || socket.user.userType === 'admin') {
           socket.join('driver-room');
+          socket.join(`driver-${socket.user.id}`);
           console.log(`Driver/Admin joined driver room: ${socket.id}`);
         }
       });
@@ -46,6 +47,82 @@ const socketService = {
         if (socket.user.userType === 'customer') {
           socket.join(`customer-${socket.user.id}`);
           console.log(`Customer joined personal room: ${socket.id}`);
+        }
+      });
+
+      // Handle driver location updates
+      socket.on('update-driver-location', async (data) => {
+        if (socket.user.userType !== 'driver') {
+          console.log(`Non-driver attempted to update location: ${socket.id}`);
+          return;
+        }
+
+        try {
+          const driverId = socket.user.id;
+          const { location, timestamp } = data;
+
+          if (!location || !location.latitude || !location.longitude) {
+            console.log('Invalid location data received');
+            return;
+          }
+
+          // Update driver location in database
+          const User = require('../models/User');
+          const Order = require('../models/Order');
+
+          await User.findByIdAndUpdate(driverId, {
+            'location.latitude': location.latitude,
+            'location.longitude': location.longitude,
+            'location.lastUpdated': location.lastUpdated || new Date()
+          });
+
+          console.log(`Driver ${driverId} location updated: ${location.latitude}, ${location.longitude}`);
+
+          // Find all active orders for this driver
+          const activeOrders = await Order.find({
+            driver: driverId,
+            status: { $in: ['preparing', 'out_for_delivery'] }
+          }).select('customer');
+
+          // Emit location update to all customers with active orders from this driver
+          const customerIds = activeOrders.map(order => order.customer.toString());
+          const uniqueCustomerIds = [...new Set(customerIds)];
+
+          uniqueCustomerIds.forEach(customerId => {
+            this.io.to(`customer-${customerId}`).emit('driver-location-update', {
+              type: 'driver-location-update',
+              data: {
+                driverId,
+                location: {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  lastUpdated: location.lastUpdated || timestamp || new Date().toISOString()
+                },
+                timestamp: timestamp || new Date().toISOString()
+              },
+              timestamp: timestamp || new Date().toISOString()
+            });
+          });
+
+          // Also emit to admin room
+          this.io.to('admin-room').emit('driver-location-update', {
+            type: 'driver-location-update',
+            data: {
+              driverId,
+              location: {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                lastUpdated: location.lastUpdated || timestamp || new Date().toISOString()
+              },
+              timestamp: timestamp || new Date().toISOString()
+            },
+            timestamp: timestamp || new Date().toISOString()
+          });
+
+          console.log(`Driver location update emitted to ${uniqueCustomerIds.length} customers and admin`);
+
+        } catch (error) {
+          console.error('Error handling driver location update:', error);
         }
       });
 
@@ -130,9 +207,10 @@ const socketService = {
         data: {
           orderId,
           updateType,
-          data,
+          data: data,
           timestamp: new Date().toISOString()
-        }
+        },
+        timestamp: new Date().toISOString()
       });
 
       console.log(`Order update emitted to customer ${customerId}: ${updateType}`);
