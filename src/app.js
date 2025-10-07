@@ -7,6 +7,8 @@ const authRoutes = require('./routes/auth');
 const orderRoutes = require('./routes/orders');
 const userManagementRoutes = require('./routes/userManagement');
 const driverRoutes = require('./routes/drivers');
+const iotRoutes = require('./routes/iot');
+const calibrationRoutes = require('./routes/calibration');
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin/users', userManagementRoutes);
 app.use('/api/drivers', driverRoutes);
+app.use('/api/iot', iotRoutes);
+app.use('/api/calibration', calibrationRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
